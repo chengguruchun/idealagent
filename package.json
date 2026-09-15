@@ -1,0 +1,43 @@
+{
+  "name": "idealagent",
+  "version": "0.3.0",
+  "description": "IdealAgent: a coding-agent framework on the official Pi harness",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "bin": {
+    "idealagent": "dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "saas:demo": "tsx src/saas/demo.ts",
+    "platform:demo": "tsx src/platform/demo.ts",
+    "check:layers": "node scripts/check-layers.mjs",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.85.1",
+    "dotenv": "^16.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3"
+  }
+}
