@@ -26,7 +26,6 @@ export {
 export type { PreparedRuntime } from "./config.js";
 export { DEFAULT_MODELS_FILE, PROVIDER_KEYS } from "./models.js";
 
-export { createSaasAgent } from "./saas/pipeline.js";
-export type { EventKind, PipelineResult, SaaSEvent } from "./saas/types.js";
-
 export * as platform from "./platform/index.js";
+export { piObserveRuntime } from "./pi-observe.js";
+export type { PiObserveOptions } from "./pi-observe.js";

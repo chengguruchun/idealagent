@@ -140,6 +140,72 @@ test("可逆能力按执行时快照补偿回旧值", () => {
   assert.equal(task.status.outcome.complete, true);
 });
 
+test("观察车道不能直接执行写 Playbook", () => {
+  const { platform } = setup(["order.*", "catalog.*"]);
+  const observe = platform.tasks.admit({
+    taskId: "obs",
+    tenantId: TENANT,
+    goal: "观察",
+    grantId: platform.grants.listForTenant(TENANT)[0].grantId,
+    runtimeClass: "observe",
+    successCriteria: [],
+  });
+  const blocked = platform.tasks.call(observe, "order.refund", { orderId: "ord_1001", amount: 10 }, {
+    idempotencyKey: "k",
+  });
+  assert.equal(blocked.status, "denied");
+  assert.equal(blocked.code, "observe_cannot_write");
+});
+
+test("两店同一套经营环，UI 和提议不同", async () => {
+  const a = new Platform({ backend: seedCommerce("shop-a") });
+  a.tenants.seed({
+    tenantId: "shop-a",
+    memory: [],
+    uiPrefs: { home: "aftersale", tone: "concise" },
+    merchandisingStrategy: { focus: "repurchase", notes: "复购" },
+    marketingStrategy: { channel: "coupon", notes: "券" },
+    reportPrefs: { highlight: "refund" },
+  });
+  const b = new Platform({ backend: seedCommerce("shop-b") });
+  b.tenants.seed({
+    tenantId: "shop-b",
+    memory: [],
+    uiPrefs: { home: "live", tone: "detailed" },
+    merchandisingStrategy: { focus: "trend", notes: "趋势" },
+    marketingStrategy: { channel: "xiaohongshu", notes: "内容" },
+    reportPrefs: { highlight: "roi" },
+  });
+
+  const run = async (app: Platform, tenantId: string) => {
+    const observeGrant = app.issueGrant({
+      tenantId,
+      agent: "op",
+      scope: ["catalog.*", "crm.*", "channel.*"],
+      constraints: {},
+    });
+    const playGrant = app.issueGrant({
+      tenantId,
+      agent: "op",
+      scope: ["marketing.*", "catalog.*"],
+      constraints: { amount: { currency: "CNY", perCall: 200, total: 500 } },
+    });
+    return app.operate({ tenantId, observeGrantId: observeGrant.grantId, playbookGrantId: playGrant.grantId });
+  };
+
+  const left = await run(a, "shop-a");
+  const right = await run(b, "shop-b");
+
+  assert.equal(left.ui.home, "aftersale");
+  assert.equal(right.ui.home, "live");
+  assert.equal(left.report.highlight, "refund");
+  assert.equal(right.report.highlight, "roi");
+  assert.equal(left.observe.status.proposals[0]?.capability, "marketing.createCoupon");
+  assert.equal(right.observe.status.proposals[0]?.capability, "catalog.updatePrice");
+  assert.equal(left.observe.spec.runtimeClass, "observe");
+  assert.equal(left.playbook?.spec.runtimeClass, "playbook");
+});
+
 test("粗粒度退款是原子的：失败不留半个事务", () => {
   const { backend, platform, task } = setup();
   const before = structuredClone(backend.getOrder(TENANT, "ord_1001"));

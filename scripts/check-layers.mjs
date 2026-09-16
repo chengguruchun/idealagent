@@ -10,6 +10,7 @@ const LAYERS = {
   backend: 0,
   capability: 1,
   grant: 2,
+  tenant: 2,
   gateway: 3,
   task: 4,
   runtime: 5,

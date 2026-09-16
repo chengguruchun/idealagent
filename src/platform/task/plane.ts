@@ -3,7 +3,19 @@ import type { Args } from "../capability/contract.js";
 import type { ExecutionGateway } from "../gateway/execute.js";
 import { isSuccess, type CallResult } from "../gateway/result.js";
 import type { Saga } from "../gateway/saga.js";
-import type { AgentTask, OutcomeCheck, TaskCondition, TaskPhase, TaskSpec } from "./types.js";
+import type {
+  AgentTask,
+  OutcomeCheck,
+  Proposal,
+  RuntimeClass,
+  TaskCondition,
+  TaskPhase,
+  TaskSpec,
+} from "./types.js";
+
+export interface CapabilityKindLookup {
+  kindOf(name: string): "query" | "business_intent" | undefined;
+}
 
 export interface AdmitOptions {
   taskId: string;
@@ -11,6 +23,7 @@ export interface AdmitOptions {
   goal: string;
   grantId: string;
   successCriteria: OutcomeCheck[];
+  runtimeClass?: RuntimeClass;
   maxSteps?: number;
 }
 
@@ -23,9 +36,12 @@ export interface CallOptions {
 }
 
 export class TaskPlane {
+  private proposalSeq = 0;
+
   constructor(
     private readonly gateway: ExecutionGateway,
     private readonly backend: CommerceBackend,
+    private readonly kinds: CapabilityKindLookup,
   ) {}
 
   admit(options: AdmitOptions): AgentTask {
@@ -34,6 +50,7 @@ export class TaskPlane {
       tenantId: options.tenantId,
       goal: options.goal,
       grantId: options.grantId,
+      runtimeClass: options.runtimeClass ?? "playbook",
       successCriteria: options.successCriteria,
       budget: { maxSteps: options.maxSteps ?? 8 },
     };
@@ -45,6 +62,7 @@ export class TaskPlane {
         calls: [],
         conditions: [],
         outcome: { complete: false, evidenceRefs: [], unmet: [], note: "admitted" },
+        proposals: [],
       },
     };
   }
@@ -59,6 +77,17 @@ export class TaskPlane {
         reason: `任务已处于终态 ${task.status.phase}`,
       };
     }
+    const kind = this.kinds.kindOf(capability);
+    if (task.spec.runtimeClass === "observe" && kind === "business_intent") {
+      return {
+        callId: "call_none",
+        capability,
+        status: "denied",
+        code: "observe_cannot_write",
+        reason: "观察车道不能执行写 Playbook，只能 propose",
+      };
+    }
+
     if (task.status.steps >= task.spec.budget.maxSteps) {
       task.status.phase = "Blocked";
       return {
@@ -97,6 +126,28 @@ export class TaskPlane {
     }
 
     return result;
+  }
+
+  propose(task: AgentTask, capability: string, args: Args, reason: string): Proposal {
+    if (task.spec.runtimeClass !== "observe") {
+      throw new Error("只有 observe 任务可以提议 Playbook");
+    }
+    const kind = this.kinds.kindOf(capability);
+    if (kind !== "business_intent") {
+      throw new Error(`只能提议写能力，${capability} 不是 business_intent`);
+    }
+    this.proposalSeq += 1;
+    const proposal: Proposal = {
+      proposalId: `prop_${this.proposalSeq.toString().padStart(4, "0")}`,
+      taskId: task.spec.taskId,
+      tenantId: task.spec.tenantId,
+      capability,
+      args,
+      reason,
+      status: "pending",
+    };
+    task.status.proposals.push(proposal);
+    return proposal;
   }
 
   approve(task: AgentTask, approver: string): string | undefined {

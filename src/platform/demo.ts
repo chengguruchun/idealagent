@@ -2,6 +2,7 @@ import { seedCommerce } from "./backend/in-memory.js";
 import { Saga } from "./gateway/saga.js";
 import { Platform } from "./platform.js";
 import { functionRuntime, scriptedRuntime } from "./runtime/scripted.js";
+import type { TenantProfile } from "./tenant/profile.js";
 import {
   couponReclaimed,
   ledgerHasRefund,
@@ -21,6 +22,7 @@ async function main(): Promise<void> {
   await budgetExhausted();
   await idempotentReplay();
   await compensation();
+  await operateTwoShops();
 }
 
 async function happyPath(): Promise<void> {
@@ -292,6 +294,61 @@ async function compensation(): Promise<void> {
   }
   console.log(`  回滚后售价 ${backend.getProduct(TENANT, "prd_1")?.price}`);
   console.log(`  账上退款分录仍在：${backend.listLedger(TENANT, "ord_1001").length} 条（钱退出去了，撤不回）`);
+}
+
+async function operateTwoShops(): Promise<void> {
+  section("8. 经营环架子：同一套能力，两店 UI / 策略不同");
+  const shops: TenantProfile[] = [
+    {
+      tenantId: "shop-repurchase",
+      memory: [],
+      uiPrefs: { home: "aftersale", tone: "concise" },
+      merchandisingStrategy: { focus: "repurchase", notes: "老客复购为主" },
+      marketingStrategy: { channel: "coupon", notes: "店内券，不投内容场" },
+      reportPrefs: { highlight: "refund" },
+    },
+    {
+      tenantId: "shop-trend",
+      memory: [],
+      uiPrefs: { home: "live", tone: "detailed" },
+      merchandisingStrategy: { focus: "trend", notes: "跟小红书趋势上新" },
+      marketingStrategy: { channel: "xiaohongshu", notes: "内容场带货" },
+      reportPrefs: { highlight: "roi" },
+    },
+  ];
+
+  for (const profile of shops) {
+    const backend = seedCommerce(profile.tenantId);
+    const app = new Platform({ backend });
+    app.tenants.seed(profile);
+    const observeGrant = app.issueGrant({
+      tenantId: profile.tenantId,
+      agent: "shop-operator",
+      scope: ["catalog.*", "crm.*", "channel.*"],
+      constraints: { ttlMinutes: 120 },
+    });
+    const playGrant = app.issueGrant({
+      tenantId: profile.tenantId,
+      agent: "shop-operator",
+      scope: ["marketing.*", "catalog.*"],
+      constraints: { amount: { currency: "CNY", perCall: 200, total: 500 } },
+    });
+
+    const result = await app.operate({
+      tenantId: profile.tenantId,
+      observeGrantId: observeGrant.grantId,
+      playbookGrantId: playGrant.grantId,
+    });
+
+    console.log(`\n  [${profile.tenantId}] home=${result.ui.home} modules=${result.ui.modules.join("/")}`);
+    console.log(`  报告: ${result.report.title}`);
+    console.log(
+      `  提议: ${result.observe.status.proposals.map((item) => `${item.capability} (${item.status})`).join(", ") || "无"}`,
+    );
+    console.log(`  券: ${backend.listCoupons(profile.tenantId).map((item) => item.couponId).join(", ")}`);
+    console.log(`  prd_2 价格: ${backend.getProduct(profile.tenantId, "prd_2")?.price}`);
+    console.log(`  memory: ${result.tenant.memory.at(-1)}`);
+  }
 }
 
 function printTask(task: AgentTask, label = "  结果"): void {

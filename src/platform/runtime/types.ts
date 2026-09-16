@@ -1,21 +1,47 @@
 import type { AnyCapabilityContract, Args, Domain } from "../capability/contract.js";
 import type { CallResult } from "../gateway/result.js";
 import type { CallOptions } from "../task/plane.js";
-import type { AgentTask } from "../task/types.js";
+import type { AgentTask, Proposal } from "../task/types.js";
+import type { ReportView, UiView } from "../tenant/compose.js";
+import type { TenantProfile } from "../tenant/profile.js";
 
-export interface ToolHandle {
+export interface CatalogItem {
+  name: string;
+  intent: string;
+  kind: "query" | "business_intent";
+  irreversible: boolean;
+}
+
+export interface PlaybookHandle {
   call(capability: string, args: Args, options?: CallOptions): CallResult;
   preview(capability: string, args: Args): CallResult;
   contract(name: string): AnyCapabilityContract | undefined;
-  catalog(namespace?: Domain): Array<{ name: string; intent: string; irreversible: boolean }>;
+  catalog(namespace?: Domain): CatalogItem[];
 }
 
-/**
- * runtime 是这套架构里唯一可替换的部分：
- * 规则、小模型、Pi 的 agent loop、人工，都实现同一个接口。
- * 它拿不到 backend，只能通过 ToolHandle 走网关。
- */
-export interface TaskRuntime {
+/** @deprecated 用 PlaybookHandle。保留别名以免旧 demo 断裂。 */
+export type ToolHandle = PlaybookHandle;
+
+export interface ObserveHandle {
+  query(capability: string, args?: Args): CallResult;
+  profile(): TenantProfile;
+  composeUi(): UiView;
+  composeReport(facts?: Record<string, unknown>): ReportView;
+  propose(capability: string, args: Args, reason: string): Proposal;
+  contract(name: string): AnyCapabilityContract | undefined;
+  catalog(namespace?: Domain): CatalogItem[];
+  playbooks(namespace?: Domain): CatalogItem[];
+}
+
+export interface PlaybookRuntime {
   name: string;
-  run(task: AgentTask, tools: ToolHandle): Promise<void> | void;
+  run(task: AgentTask, tools: PlaybookHandle): Promise<void> | void;
+}
+
+/** @deprecated 用 PlaybookRuntime */
+export type TaskRuntime = PlaybookRuntime;
+
+export interface ObserveRuntime {
+  name: string;
+  run(task: AgentTask, tools: ObserveHandle): Promise<void> | void;
 }

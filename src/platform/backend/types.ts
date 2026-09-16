@@ -61,7 +61,9 @@ export interface Ticket {
 export interface Product {
   productId: string;
   tenantId: string;
+  title: string;
   price: number;
+  tags: string[];
 }
 
 /**
@@ -80,6 +82,8 @@ export interface CommerceBackend {
   setOrderStatus(tenantId: string, orderId: string, status: OrderStatus): void;
 
   getCoupon(tenantId: string, couponId: string): Coupon | undefined;
+  listCoupons(tenantId: string): Coupon[];
+  createCoupon(tenantId: string, couponId: string, value: number): Coupon;
   reclaimCoupon(tenantId: string, couponId: string): void;
 
   getInventory(tenantId: string, skuId: string): number;
@@ -96,5 +100,6 @@ export interface CommerceBackend {
   setTicketStatus(tenantId: string, ticketId: string, status: TicketStatus): void;
 
   getProduct(tenantId: string, productId: string): Product | undefined;
+  listProducts(tenantId: string): Product[];
   setProductPrice(tenantId: string, productId: string, price: number): void;
 }

@@ -1,5 +1,8 @@
 import type { CommerceBackend } from "../backend/types.js";
+import type { Args } from "../capability/contract.js";
 import type { CallResult } from "../gateway/result.js";
+
+export type RuntimeClass = "observe" | "playbook";
 
 export type TaskPhase =
   | "Pending"
@@ -38,11 +41,22 @@ export interface OutcomeCheck {
   verify(backend: CommerceBackend, tenantId: string): VerifyResult;
 }
 
+export interface Proposal {
+  proposalId: string;
+  taskId: string;
+  tenantId: string;
+  capability: string;
+  args: Args;
+  reason: string;
+  status: "pending" | "accepted" | "rejected";
+}
+
 export interface TaskSpec {
   taskId: string;
   tenantId: string;
   goal: string;
   grantId: string;
+  runtimeClass: RuntimeClass;
   successCriteria: OutcomeCheck[];
   budget: { maxSteps: number };
 }
@@ -63,6 +77,7 @@ export interface AgentTask {
     conditions: TaskCondition[];
     outcome: Outcome;
     pendingApprovalId?: string;
+    proposals: Proposal[];
   };
 }
 

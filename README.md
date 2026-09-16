@@ -23,11 +23,11 @@ flowchart TB
   end
 
   subgraph CP["Control Plane"]
-    subgraph T["租户面"]
+    subgraph T["租户面 · 经营差异化"]
       T1["TenantProfile / Memory"]
-      T2["UI 偏好 · 看板拼装"]
-      T3["营销策略"]
-      T4["Policy / Grant / Budget"]
+      T2["UI · 客户报告"]
+      T3["选品 / 营销 / 趋势策略"]
+      T4["经营目标 · Policy / Grant"]
     end
 
     subgraph K["任务面"]
@@ -77,13 +77,13 @@ flowchart TB
   O -->|"Learn · 只改这个租户的 Policy / Memory"| T
 ```
 
-核心履约流程固定：退款、支付、库存、账务还是那几条 Playbook。千人千面落在两处——**UI**（看板、话术、呈现）和 **营销策略**（推什么、推给谁、怎么叠加）。`marketing.createCoupon` 的核销与账务步骤全站一份；「这周做老客满减还是新客折扣」是该租户的策略，由观察车道提议，再点名同一个 Playbook。
+核心**交易、履约、资金、库存状态机**固定，全站一份 Playbook。千人千面的是经营面：商品怎么选和呈现、营销怎么做、每个租户的 UI、客户报告。远期不是「标准店长后台」，而是 agent 在 Grant 预算内持续经营——选品、成交、达人/小红书等内容投放、按趋势改销售和运营策略。策略在观察车道生成；上架、发券、投放仍点名标准 ToolCapability，不现场编核销或结算。
 
 两车道不对等：agent 可以查、可以建议，不能自己拼「先退款再收券再记账」。那六步写死在 `order.refund` 这个 ToolCapability 里。
 
 | 车道 | runtimeClass | 谁规划 | 典型能力 | 失败代价 |
 |---|---|---|---|---|
-| 观察 | `observe` | Agent loop（Pi / 小模型） | 订单查询、售后看板、活动诊断、话术草稿 | 看错了，重查即可 |
+| 观察 | `observe` | Agent loop（Pi / 小模型） | 选品/趋势研判、营销策略、租户 UI、客户报告、达人与内容投放方案 | 看错了，重查或改策略 |
 | 执行 | `playbook` | 确定性系统代码，模型不在环内 | 退款、改价、关单、发券、冲账 | 钱出去了，撤不回 |
 
 护城河是 ToolCapability 契约和执行保证，不是 prompt。八个业务域是工具目录的命名空间，不是并行打分员。
@@ -128,7 +128,9 @@ classDiagram
     tenantId
     memory
     uiPrefs
+    merchandisingStrategy
     marketingStrategy
+    reportPrefs
   }
   class Grant {
     scope
@@ -158,7 +160,7 @@ classDiagram
 | **AgentTask** | 一次被承认的目标：`spec` 写意图与约束，`status` 写收敛进度。 |
 | **successCriteria** | 成功判据。只读外部状态，物理上拿不到 agent 自述。 |
 | **Budget** | 步数、金额、次数。agent 循环也刷不穿，由网关强制。 |
-| **TenantProfile / Memory** | 该租户的 UI 偏好、营销策略、话术和被接受过的 Outcome。核心履约 Playbook 不写在这里。 |
+| **TenantProfile / Memory** | 该租户的 UI、客户报告、选品与营销策略、以及被接受过的经营 Outcome。交易履约 Playbook 不写在这里。 |
 | **Policy / Grant** | Policy 是**该租户**的规则，不是平台统一流程；Grant 是按任务签发的、会过期的授权。 |
 | **Approval Gate** | 不可逆写或命中 `escalate` 时卡住，`phase=AwaitingApproval`。 |
 | **ToolCapability** | 给自治执行体看的契约，不是 OpenAPI schema。写能力粒度是一个商业意图。 |
@@ -188,7 +190,7 @@ flowchart LR
   L5b["L5b playbook<br/>确定性代码"]
   L4["L4 AgentTask"]
   L3["L3 Tool Gateway"]
-  L2["L2 Grant / Policy"]
+  L2["L2 Grant · TenantProfile"]
   L1["L1 ToolCapability"]
   L0["L0 backend"]
 
@@ -201,25 +203,26 @@ flowchart LR
 |---|---|---|
 | L0 | `backend/` | 细粒度存量接口。agent 永远不直接碰。 |
 | L1 | `capability/` | ToolCapability 注册表。`query` 给观察车道；`business_intent` 是写死的 Playbook。 |
-| L2 | `grant/` | Policy 的运行时投影：scope、window、Budget、escalate。 |
+| L2 | `grant/` `tenant/` | Grant / Policy；TenantProfile（UI、选品、营销、报告）。同层，互不依赖。 |
 | L3 | `gateway/` | Tool Gateway：idempotency、dry-run、saga、审计。写能力不带幂等键直接拒绝。 |
 | L4 | `task/` | AgentTask 控制面。`settle()` 写 Condition 和 Outcome，不信调用记录。 |
 | L5a | `runtime/` | `runtimeClass=observe`：读、看板、诊断、propose。 |
 | L5b | `runtime/` | `runtimeClass=playbook`：被 Approval Gate 放行后执行，模型不在环内。 |
 
-三条环分开转：Execute（秒–分钟，跑 AgentTask）→ Eval（小时–天，回放与对照）→ Learn（天–周，回写**该租户**的 UI 偏好 / 营销策略 / Grant 额度）。不要把 Learn 塞进 Execute，也不要把「这周卖得动」学成全站一份标准营销流程。
+三条环分开转：Execute（秒–分钟，跑 AgentTask）→ Eval（小时–天，回放投放与成交）→ Learn（天–周，回写**该租户**的选品/营销策略、UI、报告和 Grant 额度）。不要把 Learn 塞进 Execute，也不要把一家店的爆款学成全站标准选品。
 
 ### 千人千面落在哪
 
-核心流程固定，可变的是壳和策略。UI 和营销策略走观察车道 + TenantProfile；履约、资金、库存仍走确定性 Playbook。
+固定的是交易履约主干。差异化的是整条经营面，并逐步从「助手」变成「在授权内自己经营」。
 
 | | 固定（平台一份） | 千人千面（每租户一份） |
 |---|---|---|
-| 是什么 | 核心履约 Playbook、Tool Gateway 保证 | UI 拼装、话术、看板；营销策略（推谁、推什么、怎么叠加） |
-| 例子 | `order.refund` 永远六步；发券核销与冲账同一套 | A 店看板只看售后积压；B 店首页是活动诊断；C 店策略是老客满减，D 店是新客折扣 |
-| 谁规划 | 确定性系统代码 | Agent observe + TenantProfile |
-| 谁执行 | 同一条 Playbook | 仍点名标准 ToolCapability（如 `marketing.createCoupon`），不现场编核销步骤 |
-| 不能变成 | 每家一套退款/账务代码 | 全站一份「标准装修 / 标准大促方案」 |
+| 是什么 | 下单、支付、履约、退款、库存账务 Playbook | 选品与商品呈现、营销策略、租户 UI、客户报告 |
+| 例子 | 支付到账、发货状态机、`order.refund` 六步、券核销冲账 | A 店主做老客复购；B 店跟小红书趋势上新；C 店报告只看达人 ROI；D 店后台是直播看板 |
+| 谁规划 | 确定性系统代码 | 观察车道 + TenantProfile（趋势、达人、内容、定价策略） |
+| 谁执行 | 同一条 Playbook | 上架 / 发券 / 投放仍点名 `catalog.*` `marketing.*` 等标准能力 |
+| 远期 | 交易履约不按店改实现 | 持续 AgentTask：选品 → 成交 → 投放 → 按 Outcome 改策略，Grant 随信任变宽 |
+| 不能变成 | 每家一套结算/退款代码 | 全站一份装修、一份大促、一份选品清单；或让模型自己拼投放与核销步骤 |
 
 ### 一次写操作（模型不编排步骤）
 
@@ -286,7 +289,11 @@ const task = await app.runTask({
 });
 ```
 
-`src/saas/` 是更早的事件打分骨架（Gateway → 并行 specialist → Fusion → Critic），保留作对照，不再是主路径。
+观察车道可换成 Pi：`piObserveRuntime()` 只注册 `shop_*` 工具，builtin 的 bash/write 关掉。写仍由 `fulfillProposals` 跑确定性 Playbook。
+
+```bash
+npm run platform:pi
+```
 
 ## 编码 Agent（Pi）
 

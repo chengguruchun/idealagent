@@ -17,6 +17,7 @@ export interface CreateIdealAgentOptions {
   provider?: string;
   model?: string;
   tools?: string[];
+  noTools?: CreateAgentSessionOptions["noTools"];
   customTools?: CreateAgentSessionOptions["customTools"];
   thinkingLevel?: CreateAgentSessionOptions["thinkingLevel"];
   sessionManager?: CreateAgentSessionOptions["sessionManager"];
@@ -81,6 +82,7 @@ export async function createIdealAgent(options: CreateIdealAgentOptions = {}) {
     modelRuntime,
     resourceLoader,
     tools: options.tools,
+    noTools: options.noTools,
     customTools: options.customTools,
     sessionManager,
   });

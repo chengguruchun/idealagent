@@ -72,6 +72,16 @@ export class InMemoryCommerce implements CommerceBackend {
     return this.state.coupons[key(tenantId, couponId)];
   }
 
+  listCoupons(tenantId: string): Coupon[] {
+    return Object.values(this.state.coupons).filter((item) => item.tenantId === tenantId);
+  }
+
+  createCoupon(tenantId: string, couponId: string, value: number): Coupon {
+    const coupon: Coupon = { couponId, tenantId, value, status: "active" };
+    this.state.coupons[key(tenantId, couponId)] = coupon;
+    return coupon;
+  }
+
   reclaimCoupon(tenantId: string, couponId: string): void {
     const coupon = this.require(this.getCoupon(tenantId, couponId), `优惠券不存在: ${couponId}`);
     coupon.status = "reclaimed";
@@ -131,6 +141,10 @@ export class InMemoryCommerce implements CommerceBackend {
 
   getProduct(tenantId: string, productId: string): Product | undefined {
     return this.state.products[key(tenantId, productId)];
+  }
+
+  listProducts(tenantId: string): Product[] {
+    return Object.values(this.state.products).filter((item) => item.tenantId === tenantId);
   }
 
   setProductPrice(tenantId: string, productId: string, price: number): void {
@@ -199,7 +213,20 @@ export function seedCommerce(tenantId: string): InMemoryCommerce {
     replies: [],
   };
 
-  products[`${tenantId}/prd_1`] = { productId: "prd_1", tenantId, price: 199 };
+  products[`${tenantId}/prd_1`] = {
+    productId: "prd_1",
+    tenantId,
+    title: "基础款卫衣",
+    price: 199,
+    tags: ["evergreen", "repurchase"],
+  };
+  products[`${tenantId}/prd_2`] = {
+    productId: "prd_2",
+    tenantId,
+    title: "趋势限定T恤",
+    price: 129,
+    tags: ["trend", "xiaohongshu"],
+  };
 
   return new InMemoryCommerce({ orders, coupons, inventory, tickets, products });
 }

@@ -32,10 +32,16 @@ export class CapabilityRegistry {
    * 工具目录规模化之后，agent 塞不下全部契约。
    * 这里给的是分级披露的最小形态：先给意图摘要，用到了再取完整契约。
    */
-  summaries(namespace?: Domain): Array<{ name: string; intent: string; irreversible: boolean }> {
+  summaries(namespace?: Domain): Array<{
+    name: string;
+    intent: string;
+    kind: "query" | "business_intent";
+    irreversible: boolean;
+  }> {
     return this.list(namespace).map((item) => ({
       name: item.name,
       intent: item.intent,
+      kind: item.kind,
       irreversible: item.irreversible,
     }));
   }

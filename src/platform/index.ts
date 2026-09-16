@@ -1,5 +1,5 @@
 export { Platform } from "./platform.js";
-export type { PlatformOptions } from "./platform.js";
+export type { ObserveResult, OperateResult, PlatformOptions } from "./platform.js";
 
 export type {
   CommerceBackend,
@@ -27,8 +27,13 @@ export type {
 } from "./capability/contract.js";
 export { CapabilityRegistry } from "./capability/registry.js";
 export {
+  catalogList,
   catalogUpdatePrice,
+  channelTalents,
+  channelTrends,
+  crmReport,
   defaultRegistry,
+  marketingCreateCoupon,
   orderQuery,
   orderRefund,
   supportReply,
@@ -38,6 +43,12 @@ export { GrantIssuer } from "./grant/issuer.js";
 export { checkGrant } from "./grant/check.js";
 export { FILTERS } from "./grant/filters.js";
 export type { Grant, GrantConstraints, GrantVerdict } from "./grant/types.js";
+
+export { TenantDirectory } from "./tenant/directory.js";
+export { composeReport, composeUi } from "./tenant/compose.js";
+export { defaultProfile } from "./tenant/profile.js";
+export type { TenantProfile, TenantProfilePatch } from "./tenant/profile.js";
+export type { ReportView, UiView } from "./tenant/compose.js";
 
 export { ExecutionGateway } from "./gateway/execute.js";
 export type { ApprovalRequest } from "./gateway/execute.js";
@@ -51,8 +62,33 @@ export type { AuditRecord, CallResult, CallStatus, CapabilityCall } from "./gate
 export { TaskPlane } from "./task/plane.js";
 export type { AdmitOptions, CallOptions } from "./task/plane.js";
 export { condition } from "./task/types.js";
-export type { AgentTask, Outcome, OutcomeCheck, TaskCondition, TaskPhase } from "./task/types.js";
+export type {
+  AgentTask,
+  Outcome,
+  OutcomeCheck,
+  Proposal,
+  RuntimeClass,
+  TaskCondition,
+  TaskPhase,
+} from "./task/types.js";
 export * as checks from "./task/checks.js";
 
-export { functionRuntime, scriptedRuntime } from "./runtime/scripted.js";
-export type { TaskRuntime, ToolHandle } from "./runtime/types.js";
+export {
+  functionObserveRuntime,
+  functionRuntime,
+  scriptedRuntime,
+} from "./runtime/scripted.js";
+export { defaultOperateRuntime } from "./runtime/operate.js";
+export {
+  dispatchObserveTool,
+  OBSERVE_TOOL_NAMES,
+  observeSystemPrompt,
+} from "./runtime/observe-bridge.js";
+export type {
+  ObserveHandle,
+  ObserveRuntime,
+  PlaybookHandle,
+  PlaybookRuntime,
+  TaskRuntime,
+  ToolHandle,
+} from "./runtime/types.js";

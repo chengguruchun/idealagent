@@ -1,5 +1,28 @@
 import { defineCapability } from "../contract.js";
 
+export const catalogList = defineCapability({
+  name: "catalog.list",
+  namespace: "catalog",
+  intent: "读取本店商品列表，供选品与陈列决策",
+  kind: "query",
+  requiresScope: ["catalog.read"],
+  effects: [],
+  irreversible: false,
+  idempotency: "not_applicable",
+  pitfalls: [],
+  preconditions: [],
+  amountOf: () => 0,
+  dryRun: () => ["读取商品目录"],
+  execute(ctx) {
+    const products = ctx.backend.listProducts(ctx.tenantId);
+    return {
+      data: products,
+      changeSet: {},
+      evidenceRef: `catalog:${ctx.tenantId}`,
+    };
+  },
+});
+
 type PriceArgs = {
   productId: string;
   price: number;

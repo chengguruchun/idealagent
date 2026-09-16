@@ -9,6 +9,7 @@ export const DOMAINS = [
   "support",
   "finance",
   "risk",
+  "channel",
 ] as const;
 
 export type Domain = (typeof DOMAINS)[number];
